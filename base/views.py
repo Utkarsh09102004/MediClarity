@@ -1,6 +1,11 @@
+from django.contrib import messages
 from django.contrib.auth import authenticate, login
 from django.shortcuts import render, redirect
+from django.views.decorators.csrf import csrf_exempt
+from .inputData import storeDb
 from .forms import PatientLoginForm, DoctorLoginForm
+from .models import MedicalHistory, Prescription
+from .inputData import create_patient_record_from_json
 
 def patient_login(request):
     if request.method == 'POST':
@@ -18,8 +23,8 @@ def patient_login(request):
                 return render(request, 'patient_login.html', {'form': form, 'error': True})
     else:
         form = PatientLoginForm()
-    return render(request, 'patientLogin', {'form': form, 'error': False})
-
+    return render(request, 'base/patient_login.html', {'form': form, 'error': False})
+@csrf_exempt
 def doctor_login(request):
     if request.method == 'POST':
         form = DoctorLoginForm(request.POST)
@@ -34,15 +39,17 @@ def doctor_login(request):
                 # return redirect('doctor_dashboard')
             else:
                 # Invalid login
-                return render(request, 'doctor_login.html', {'form': form, 'error': True})
+                return render(request, 'base/doctor_login.html', {'form': form, 'error': True})
     else:
         form = DoctorLoginForm()
-    return render(request, 'doctorLogin', {'form': form, 'error': False})
+    return render(request, 'base/doctor_login.html', {'form': form, 'error': False})
 
 from .forms import PatientSignUpForm, DoctorSignUpForm
 from .models import User, Patient, Doctor
 
+@csrf_exempt
 def patient_signup(request):
+
     if request.method == 'POST':
         form = PatientSignUpForm(request.POST)
         if form.is_valid():
@@ -96,7 +103,61 @@ def doctor_signup(request):
             login(request, user)
 
             # Redirect to doctor dashboard or any other page
-            print("hello")
+            return redirect('doctorDashboard')
     else:
         form = DoctorSignUpForm()
-    return render(request, 'doctor_signup.html', {'form': form})
+    return render(request, 'base/doctor_signup.html', {'form': form})
+
+@csrf_exempt
+def doctor_dashboard(request):
+    user = request.user
+    doctor = Doctor.objects.get(user=user)
+
+    if request.method == 'POST':
+        aadhar_number = request.POST.get('aadhar_number')
+
+        users = User.objects.filter(aadhar_number=aadhar_number).first()
+        if users:
+            request.session['data'] = aadhar_number
+            return redirect('patientDetails')
+
+        else:
+            messages.error(request, 'Incorrect Aadhar number.')
+            context = {'doctor': doctor, 'user': user}
+    context = {'doctor': doctor, 'user': user}
+    return render(request, 'base/doctor_dashboard.html', context)
+@csrf_exempt
+def patient_details(request):
+    user = request.user
+    data = request.session.get('data')
+    doctor = Doctor.objects.get(user=user)
+    print(data)
+
+    patient_user = User.objects.get(aadhar_number=data)
+    patient=Patient.objects.get(user=patient_user)
+
+    if request.method == 'POST':
+        transcription = request.POST.get('transcription', '')
+        storeDb(patient, doctor, transcription)
+        return redirect('patientDetails')
+
+    prescriptions = Prescription.objects.filter(patient=patient)
+
+    # Get all medical history related to the patient
+    medical_history = MedicalHistory.objects.filter(patient=patient)
+
+    # Pass the prescriptions and medical history to the context dictionary
+    context = {
+        'patient': patient,
+        'prescriptions': prescriptions,
+        'medical_history': medical_history,
+    }
+
+    # Render the template with the context
+
+    context={"patient_user":patient_user, "doctor_user":user,"patient":patient,"prescriptions":prescriptions, "medical_history": medical_history}
+    return render(request, 'base/patient_details.html',context )
+
+
+
+

@@ -33,7 +33,7 @@ class Doctor(models.Model):
 
 
 class MedicalHistory(models.Model):
-    patient = models.ForeignKey('Patient', on_delete=models.CASCADE)
+    patient = models.ForeignKey('Patient', on_delete=models.CASCADE,null=True)
     disease_name = models.CharField(max_length=100)
     date_acquired = models.DateField()
 
@@ -44,30 +44,37 @@ class Doctor(models.Model):
 
 class Prescription(models.Model):
     prescription_id = models.AutoField(primary_key=True)
-    patient = models.ForeignKey(Patient, on_delete=models.CASCADE)
-    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE)
-    date = models.DateField()
-    transcribed_text = models.TextField()
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, null=True)
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, null=True)
+    date = models.DateField( null=True)
+    transcribed_text = models.TextField(null=True)
+    disease = models.ForeignKey('MedicalCondition', on_delete=models.CASCADE, null=True)
+    medications = models.ManyToManyField('Medication', related_name='prescribed_to', null=True)
 
-class VitalInformation(models.Model):
-    vital_id = models.AutoField(primary_key=True)
-    vital_name = models.CharField(max_length=100)
-    description = models.TextField()
 
-class Disease(models.Model):
+
+class MedicalCondition(models.Model):
     disease_id = models.AutoField(primary_key=True)
     disease_name = models.CharField(max_length=100)
-    description = models.TextField()
+
+
+
+class VitalSigns(models.Model):
+    vital_id = models.AutoField(primary_key=True)
+    vital_name = models.CharField(max_length=100)
+    value= models.CharField(max_length=100, null=True)
+    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE)
+
+
+
+
+
 
 class Medication(models.Model):
     medication_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
     dosage = models.CharField(max_length=50)
-    purpose = models.TextField()
+    purpose = models.CharField(max_length=100)
+    prescriptions = models.ManyToManyField('Prescription', related_name='prescribed_medications',null=True)
 
-class PrescriptionDetails(models.Model):
-    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE)
-    vital_information = models.ForeignKey(VitalInformation, on_delete=models.CASCADE, null=True, blank=True)
-    diseases = models.ManyToManyField(Disease, blank=True)
-    medications = models.ManyToManyField(Medication, blank=True)
-    value = models.CharField(max_length=100)
+
